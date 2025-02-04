@@ -60,33 +60,53 @@
         }
         startCamera();
 
-        selectionCanvas.addEventListener('mousedown', (e) => {
-            startX = e.offsetX;
-            startY = e.offsetY;
-            isDrawing = true;
-        });
+        // สร้างการเลือกพื้นที่
+        let isSelecting = false;
+        function startSelection(x, y) {
+            isSelecting = true;
+            startX = x;
+            startY = y;
+        }
 
-        selectionCanvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
-            endX = e.offsetX;
-            endY = e.offsetY;
-            drawSelectionBox();
-        });
+        function updateSelection(x, y) {
+            if (!isSelecting) return;
+            endX = x;
+            endY = y;
+            drawSelection();
+        }
 
-        selectionCanvas.addEventListener('mouseup', () => {
-            isDrawing = false;
-            selectedArea = { x: startX, y: startY, width: endX - startX, height: endY - startY };
-            captureSelectedArea();
-        });
+        function endSelection() {
+            isSelecting = false;
+        }
 
-        function drawSelectionBox() {
+        function drawSelection() {
             ctxSelect.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
-            ctxSelect.strokeStyle = 'red';
+            ctxSelect.strokeStyle = "red";
             ctxSelect.lineWidth = 2;
             ctxSelect.strokeRect(startX, startY, endX - startX, endY - startY);
         }
 
+        // รองรับเมาส์ (Desktop)
+        selectionCanvas.addEventListener("mousedown", (e) => startSelection(e.offsetX, e.offsetY));
+        selectionCanvas.addEventListener("mousemove", (e) => updateSelection(e.offsetX, e.offsetY));
+        selectionCanvas.addEventListener("mouseup", endSelection);
 
+        // รองรับสัมผัส (Mobile)
+        selectionCanvas.addEventListener("touchstart", (e) => {
+            let touch = e.touches[0];
+            let rect = selectionCanvas.getBoundingClientRect();
+            startSelection(touch.clientX - rect.left, touch.clientY - rect.top);
+        });
+
+        selectionCanvas.addEventListener("touchmove", (e) => {
+            let touch = e.touches[0];
+            let rect = selectionCanvas.getBoundingClientRect();
+            updateSelection(touch.clientX - rect.left, touch.clientY - rect.top);
+        });
+
+        selectionCanvas.addEventListener("touchend", endSelection);
+
+        // ฟังก์ชันการแคปเจอภาพ
         function captureSelectedArea() {
             if (!selectedArea) return;
 
@@ -110,7 +130,6 @@
 
             // รีเซ็ตค่า filter
             ctxCapture.filter = "none";
-
 
             const imageDataUrl = captureCanvas.toDataURL('image/png');
             preview.src = imageDataUrl;
