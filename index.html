@@ -77,6 +77,14 @@
 
         function endSelection() {
             isSelecting = false;
+            // บันทึกพิกัดของพื้นที่ที่เลือก
+            selectedArea = {
+                x: Math.min(startX, endX),
+                y: Math.min(startY, endY),
+                width: Math.abs(endX - startX),
+                height: Math.abs(endY - startY)
+            };
+            captureSelectedArea();
         }
 
         function drawSelection() {
