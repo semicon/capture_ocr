@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR จากพื้นที่ที่เลือก</title>
+    <style>
+        video,
+        canvas {
+            border: 1px solid black;
+            max-width: 100%;
+        }
+
+        #selectionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="position: relative;">
+        <video id="video" autoplay></video>
+        <canvas id="selectionCanvas"></canvas>
+    </div>
+    <canvas id="captureCanvas" style="display: none;"></canvas>
+    <p>ผลลัพธ์: <span id="output"></span></p>
+    <button id="resetBtn">รีเซ็ต</button>
+
+    <p><b>ภาพตัวอย่าง:</b></p>
+    <img id="preview" style="max-width: 300px; display: none; border: 1px solid black;" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const selectionCanvas = document.getElementById('selectionCanvas');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const ctxSelect = selectionCanvas.getContext('2d');
+        const ctxCapture = captureCanvas.getContext('2d');
+        const output = document.getElementById('output');
+        const resetBtn = document.getElementById('resetBtn');
+        const preview = document.getElementById('preview');
+
+        let startX, startY, endX, endY, isDrawing = false;
+        let selectedArea = null;
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.addEventListener('loadedmetadata', () => {
+                        selectionCanvas.width = video.videoWidth;
+                        selectionCanvas.height = video.videoHeight;
+                    });
+                })
+                .catch(err => console.error("ไม่สามารถเปิดกล้องได้", err));
+        }
+        startCamera();
+
+        selectionCanvas.addEventListener('mousedown', (e) => {
+            startX = e.offsetX;
+            startY = e.offsetY;
+            isDrawing = true;
+        });
+
+        selectionCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            endX = e.offsetX;
+            endY = e.offsetY;
+            drawSelectionBox();
+        });
+
+        selectionCanvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+            selectedArea = { x: startX, y: startY, width: endX - startX, height: endY - startY };
+            captureSelectedArea();
+        });
+
+        function drawSelectionBox() {
+            ctxSelect.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
+            ctxSelect.strokeStyle = 'red';
+            ctxSelect.lineWidth = 2;
+            ctxSelect.strokeRect(startX, startY, endX - startX, endY - startY);
+        }
+
+
+        function captureSelectedArea() {
+            if (!selectedArea) return;
+
+            // ขนาดเดิมของภาพที่แคป
+            let originalWidth = selectedArea.width;
+            let originalHeight = selectedArea.height;
+
+            // กำหนดขนาดใหม่เป็น 2 เท่า
+            let newWidth = originalWidth * 2;
+            let newHeight = originalHeight * 2;
+
+            // ตั้งค่าขนาดของ canvas
+            captureCanvas.width = newWidth;
+            captureCanvas.height = newHeight;
+
+            // ใช้ฟิลเตอร์ปรับให้ OCR อ่านง่ายขึ้น
+            ctxCapture.filter = "grayscale(100%) contrast(150%) brightness(350%)";
+
+            // วาดภาพโดยขยาย 2 เท่า
+            ctxCapture.drawImage(video, selectedArea.x, selectedArea.y, originalWidth, originalHeight, 0, 0, newWidth, newHeight);
+
+            // รีเซ็ตค่า filter
+            ctxCapture.filter = "none";
+
+
+            const imageDataUrl = captureCanvas.toDataURL('image/png');
+            preview.src = imageDataUrl;
+            preview.style.display = "block";
+
+            Tesseract.recognize(imageDataUrl, 'eng+tha', {
+                logger: m => console.log(m)
+            }).then(({ data: { text } }) => {
+                output.textContent = text;
+            }).catch(err => console.error("เกิดข้อผิดพลาด:", err));
+        }
+
+        resetBtn.addEventListener('click', () => {
+            selectedArea = null;
+            ctxSelect.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
+            output.textContent = "";
+            preview.style.display = "none";
+        });
+    </script>
+</body>
+
+</html>
