@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR จากวีดีโอ</title>
+    <style>
+        video,
+        canvas {
+            border: 1px solid black;
+            max-width: 100%;
+        }
+
+        #selectionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="position: relative;">
+        <video id="video" autoplay></video>
+        <canvas id="selectionCanvas"></canvas>
+    </div>
+    <canvas id="captureCanvas" style="display: none;"></canvas>
+    <p>ผลลัพธ์: <span id="output"></span></p>
+    <button id="resetBtn">รีเซ็ต</button>
+
+    <p><b>ภาพตัวอย่าง:</b></p>
+    <img id="preview" style="max-width: 300px; display: none; border: 1px solid black;" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const selectionCanvas = document.getElementById('selectionCanvas');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const ctxSelect = selectionCanvas.getContext('2d');
+        const ctxCapture = captureCanvas.getContext('2d');
+        const output = document.getElementById('output');
+        const resetBtn = document.getElementById('resetBtn');
+        const preview = document.getElementById('preview');
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.addEventListener('loadedmetadata', () => {
+                        selectionCanvas.width = video.videoWidth;
+                        selectionCanvas.height = video.videoHeight;
+                    });
+                })
+                .catch(err => console.error("ไม่สามารถเปิดกล้องได้", err));
+        }
+        startCamera();
+
+        // ฟังก์ชันการแคปเจอภาพเมื่อคลิกที่กรอบ
+        function captureFullFrame() {
+            // กำหนดขนาดของภาพทั้งหมดในกรอบ
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+
+            // ตั้งค่าขนาดของ canvas
+            captureCanvas.width = width;
+            captureCanvas.height = height;
+
+            // วาดภาพจากวีดีโอไปยัง canvas
+            ctxCapture.drawImage(video, 0, 0, width, height);
+
+            const imageDataUrl = captureCanvas.toDataURL('image/png');
+            preview.src = imageDataUrl;
+            preview.style.display = "block";
+
+            // ใช้ Tesseract.js เพื่อแปลงข้อความจากภาพ
+            Tesseract.recognize(imageDataUrl, 'eng+tha', {
+                logger: m => console.log(m)
+            }).then(({ data: { text } }) => {
+                output.textContent = text;
+            }).catch(err => console.error("เกิดข้อผิดพลาด:", err));
+        }
+
+        // เมื่อคลิกที่กรอบวีดีโอ ให้แคปเจอภาพทั้งหมด
+        selectionCanvas.addEventListener("click", captureFullFrame);
+
+        resetBtn.addEventListener('click', () => {
+            output.textContent = "";
+            preview.style.display = "none";
+        });
+    </script>
+</body>
+
+</html>
