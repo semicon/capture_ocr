@@ -67,8 +67,14 @@
             captureCanvas.width = width;
             captureCanvas.height = height;
 
+            // ใช้ฟิลเตอร์ปรับให้ OCR อ่านง่ายขึ้น
+            ctxCapture.filter = "grayscale(100%) contrast(150%) brightness(350%)"
+            
             // วาดภาพจากวีดีโอไปยัง canvas
             ctxCapture.drawImage(video, 0, 0, width, height);
+
+            // รีเซ็ตค่า filter
+            ctxCapture.filter = "none";
 
             const imageDataUrl = captureCanvas.toDataURL('image/png');
             preview.src = imageDataUrl;
